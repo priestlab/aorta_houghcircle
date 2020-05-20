@@ -1,0 +1,18 @@
+# GitIgnore files for aorta_houghcircle repo
+
+# Ignore all .DS_Store files (they are so annoying)
+**.DS_Store
+
+# Ignore all .swp files
+**.swp
+
+# Ignore all pyc files
+**.pyc
+**.pyo
+
+# Ignore pycache files
+**/__pycache__
+
+# Ignore jupyter notebook checkpoints
+**/.ipynb_checkpoints
+
