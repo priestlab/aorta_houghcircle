@@ -25,7 +25,7 @@ from dataset.AoDist_dataset import AoDistDataset
 
 
 
-def segment_frame(frame):
+def segment_frame(frame, plot=False):
     """
     Segmenting one frame for ascending and descending aorta
     """
@@ -61,12 +61,19 @@ def segment_frame(frame):
     c_seg, c_marker = watershed_all_circles(_image, circles, labelValue, gamma=2.5)
     c_overlay = get_watershed_overlay(_image, c_seg)
     
-    #fig = plt.figure(figsize=(8, 4))
-    #ax1 = fig.add_subplot(1,2,1)
-    #ax1.imshow(c_overlay)
-    #ax2 = fig.add_subplot(1,2,2)
-    #ax2.imshow(c_seg==50)
-    #plt.show()
+    if plot:
+        fig = plt.figure(figsize=(9, 4))
+        ax1 = fig.add_subplot(1,3,1)
+        ax1.imshow(c_overlay)
+        ax1.set_title("segmentation")
+        ax2 = fig.add_subplot(1,3,2)
+        ax2.imshow(c_seg==50)
+        ax2.set_title("ascending aorta mask")
+        ax3 = fig.add_subplot(1,3,3)
+        ax3.imshow(c_seg==100)
+        ax3.set_title("descending aorta mask")
+        plt.savefig('segmentation_test01.png')
+        #plt.show()
     
     return c_seg
 
@@ -81,14 +88,14 @@ def get_aorta_measurements(c_seg, image_ratio, label):
     aorta_measurement = ((aorta_area / math.pi)**0.5)*2.0*image_ratio
     return aorta_measurement
 
-def first_frame_segment(data, save_dir="aorta"):
+def first_frame_segment(data, save_dir="aorta", plot=False):
     """
     Generate ascending and descending aorta diameters using first frame
     """
     images, image_ratio, image_id = data
     image = images[0]
 
-    c_seg = segment_frame(image)
+    c_seg = segment_frame(image, plot=plot)
 
     aorta_measurements = np.array([get_aorta_measurements(c_seg, image_ratio, 50),
                                    get_aorta_measurements(c_seg, image_ratio, 100)])
@@ -100,13 +107,13 @@ def first_frame_segment(data, save_dir="aorta"):
     return aorta_measurements
 
 
-def all_frames_segment(data, save_dir="aorta"):
+def all_frames_segment(data, save_dir="aorta", plot=False):
     """
     Generate ascending and descending aorta diameters using all frames
     """
     images, image_ratio, image_id = data
 
-    c_segs = np.array([segment_frame(image) for image in images])
+    c_segs = np.array([segment_frame(image, plot=plot) for image in images])
     c_seg1 = np.mean((c_segs==50).astype(float), axis=0).round().astype(int)
     c_seg2 = np.mean((c_segs==100).astype(float), axis=0).round().astype(int)
 
@@ -119,15 +126,15 @@ def all_frames_segment(data, save_dir="aorta"):
 
     return aorta_measurements
 
-def segment_dtpt(data, save_dir="aorta", all_frames=False):
+def segment_dtpt(data, save_dir="aorta", all_frames=False, plot=False):
     image_id = data[-1]
     print("-"*100)
     print(f"SEGMENTING {image_id}")
     try:
         if all_frames:
-            aorta_measurements = all_frames_segment(data, save_dir)
+            aorta_measurements = all_frames_segment(data, save_dir, plot=plot)
         else:
-            aorta_measurements = first_frame_segment(data, save_dir)
+            aorta_measurements = first_frame_segment(data, save_dir, plot=plot)
 
 
     except Exception as err:
@@ -154,7 +161,7 @@ def main(args):
                             scale_size, data_size, 
                             seriesDescription, meta)
 
-    segment_dt = partial(segment_dtpt, save_dir=args.out_dir, all_frames=args.all_frames)
+    segment_dt = partial(segment_dtpt, save_dir=args.out_dir, all_frames=args.all_frames, plot=args.plot)
 
     #results = []
     #for i, data in enumerate(dataset):
@@ -182,6 +189,7 @@ if __name__ == '__main__':
     argparser.add_argument("-O", "--out_dir", type=str, default="aorta", help="the output folder to save csv and npy measurements to.")
     argparser.add_argument("--threads", type=int, default=8, help="the number of threads to use.")
     argparser.add_argument("--all_frames", action="store_true", help="whether to use all frames for calculating aorta measurements.")
+    argparser.add_argument("--plot", action="store_true", help="whether to plot the segmentation.")
     args = argparser.parse_args()
 
     main(args)
