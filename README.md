@@ -1,7 +1,7 @@
 # aorta_houghcircle
 Generating aorta measurements from pulmonary artery view MRI using hough circles
 
-## Set up (installing all python package dependencies)
+## Set up the python environment (installing all python package dependencies)
 To ensure all required packages are installed, run the following command:
 ```
 pip install -r requirements.txt
@@ -40,13 +40,14 @@ To see the process of segmentation and generating measurements in action, simply
 python Ao_segment.py --root_dir test_data/zips --csv_data test_data/labels.csv --threads 1 --plot
 ```
 
+### Results
 The segmentation of the examples would be like the images shown below:
 
 Example 1:
 ![Example 1](/images/segmentation_test01.png)
 
 Example 2:
-![Example 2](/images/segmentation_test03.png)
+![Example 2](/images/segmentation_test02.png)
 
 Example 3:
 ![Example 3](/images/segmentation_test03.png)

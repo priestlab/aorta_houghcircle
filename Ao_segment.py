@@ -72,8 +72,7 @@ def segment_frame(frame, plot=False):
         ax3 = fig.add_subplot(1,3,3)
         ax3.imshow(c_seg==100)
         ax3.set_title("descending aorta mask")
-        plt.savefig('segmentation_test01.png')
-        #plt.show()
+        plt.show()
     
     return c_seg
 
