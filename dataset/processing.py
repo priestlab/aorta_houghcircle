@@ -2,7 +2,6 @@ import cv2
 import numbers
 import numpy as np
 from torchvision.transforms import Compose
-from skimage.util import pad as skimage_pad
 from skimage.exposure import rescale_intensity
 
 import logging
@@ -62,8 +61,8 @@ class PadCrop(object):
         pad_h1  = pad_h - pad_h0
         pad_w0  = int(pad_w / 2)
         pad_w1  = pad_w - pad_w0
-        img     = skimage_pad(img, ((pad_h0, pad_h1),(pad_w0, pad_w1)), self.mode)
-        mask    = skimage_pad(mask, ((pad_h0, pad_h1),(pad_w0, pad_w1)), self.mode)
+        img     = np.pad(img, ((pad_h0, pad_h1),(pad_w0, pad_w1)), self.mode)
+        mask    = np.pad(mask, ((pad_h0, pad_h1),(pad_w0, pad_w1)), self.mode)
 
         return img, mask
 
@@ -128,10 +127,10 @@ class CropResize(object):
         crop_h0, crop_h1 = 0, h
         crop_w0, crop_w1 = 0, w
         if h > w:
-            crop_h0 = int((h - w)/2)
+            crop_h0 = int((h-w)/2)
             crop_h1 = crop_h0 + w
         elif w > h:
-            crop_w0 = int((w - h)/2)
+            crop_w0 = int((w-h)/2)
             crop_w1 = crop_w0 + h
         
         return img[crop_h0:crop_h1, crop_w0:crop_w1]
@@ -154,11 +153,15 @@ class CropResize(object):
 
         return mask
 
-def ResizePad(image, mask):
-    if image.shape == mask.shape:
+def ResizePad(mask, image_shape):
+    """
+    Resize and Pad mask back to original shape
+     -- reverse action of CropResize for masks
+    """
+    if mask.shape == image_shape:
         return mask
 
-    h, w = image.shape
+    h, w = image_shape
     side = min(h, w)
     mask = cv2.resize(mask, (side, side), interpolation=cv2.INTER_NEAREST)
 
@@ -167,14 +170,14 @@ def ResizePad(image, mask):
 
     if h > w:
         pad_h0 = int((h-w)/2)
-        pad_h1 = h - w - pad_h0
+        pad_h1 = h-w-pad_h0
     elif w > h:
         pad_w0 = int((w-h)/2)
-        pad_w1 = w - h - pad_w0
+        pad_w1 = w-h-pad_w0
 
     padding = ((pad_h0, pad_h1),(pad_w0, pad_w1))
-    mask = skimage_pad(mask, padding, 'constant')
-    mask = rescale_intensity(mask.astype(np.float64), out_range=(0.0, 1.0))
+    mask = np.pad(mask, padding, 'constant')
+    #mask = rescale_intensity(mask.astype(np.float64), out_range=(0.0, 1.0))
 
     return mask
 

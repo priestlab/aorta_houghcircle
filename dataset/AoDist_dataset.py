@@ -1,15 +1,17 @@
 from __future__ import division
 
+import numpy as np
+
 from pydicom import dcmread
 from pydicom.filebase import DicomBytesIO
 from zipfile import ZipFile
-import numpy as np
 from torch.utils.data import Dataset
 from skimage.exposure import rescale_intensity
 import pandas as pd
 from scipy.ndimage import center_of_mass
 
 from dataset.processing import CropResize
+from dataset.processing import ResizePad
 
 def load_dcm_from_zip(zip_file, seriesDescription=None, meta=None):
 
@@ -51,7 +53,6 @@ def load_dcm_from_zip(zip_file, seriesDescription=None, meta=None):
 
 
 
-
 ##################################################
 ## resize to (196, 196), then crop down 
 ## to (128, 128), so lose 34 pixels on each side.
@@ -85,8 +86,18 @@ def preprocess_image(image,
             int(min(max(cx-data_size[1]/2,0),scale_size[1]-data_size[1])))
     image_cropped = image_scaled[crop[0]:crop[0]+data_size[0],
                                  crop[1]:crop[1]+data_size[1]]
+    paddings = [(crop[0], scale_size[0]-data_size[0]-crop[0]),
+                (crop[1], scale_size[1]-data_size[1]-crop[1]),
+                image.shape]
     
-    return image_cropped
+    return image_cropped, paddings
+
+
+def postprocess_mask(mask, paddings, image_shape):
+    padded_mask = np.pad(mask, paddings, 'constant')
+    scaled_mask = ResizePad(padded_mask, tuple(image_shape))
+
+    return scaled_mask
             
             
 ##################################################
@@ -102,7 +113,8 @@ class AoDistDataset(Dataset):
                  scale_size=(196,196),
                  data_size=(128,128),
                  seriesDescription="CINE_segmented_Ao_dist",
-                 meta=["PixelSpacing", "Rows", "Columns"]):
+                 meta=["PixelSpacing", "Rows", "Columns"],
+                 return_paddings=False):
         """
         Params
         ------
@@ -121,6 +133,7 @@ class AoDistDataset(Dataset):
 
         self.seriesDescription = seriesDescription
         self.meta = meta
+        self.return_paddings = return_paddings
         
     def __len__(self):
         return len(self.labels)
@@ -140,11 +153,16 @@ class AoDistDataset(Dataset):
         ratio = float(min(npys.shape[1], npys.shape[2])) / self.scale_size[0]
         ratio = ratio * metas[0]['PixelSpacing'][0]
         
-        image_pid = zip_path.split("/")[-1].split("_")[0]
-        images = np.array([preprocess_image(image, self.scale_size, self.data_size) 
-                           for image in npys])
+        image_pid = zip_path.split("/")[-1].split(".")[0].split("_")[0]
+        images_w_paddings = [preprocess_image(image, self.scale_size, self.data_size) 
+                             for image in npys]
+        images = np.array([x[0] for x in images_w_paddings])
+        paddings = np.array([x[1] for x in images_w_paddings])
         
-        return images, ratio, image_pid
+        if self.return_paddings:
+            return images, npys, paddings, ratio, image_pid
+        else:
+            return images, ratio, image_pid
     
 
 
