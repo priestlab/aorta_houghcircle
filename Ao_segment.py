@@ -5,13 +5,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from os.path import isdir
-from os import makedirs
 from functools import partial
 from multiprocessing import Pool
 
 from skimage.exposure import rescale_intensity
 from skimage.filters import gaussian
+from skimage.io import imsave
 
 from segmentation.Ao_circle import Ao_hough_circle1
 from segmentation.Ao_circle import Ao_hough_circleCV
@@ -20,12 +19,13 @@ from segmentation.watershed import watershed_all_circles
 from utils.utils import organize_circles
 from utils.display import get_watershed_overlay
 from utils.display import get_overlay_circles
+from utils.file import secure_dir
 
 from dataset.AoDist_dataset import AoDistDataset
 
 
 
-def segment_frame(frame, plot=False):
+def segment_frame(frame, plot=False, savePng=None):
     """
     Segmenting one frame for ascending and descending aorta
     """
@@ -73,6 +73,12 @@ def segment_frame(frame, plot=False):
         ax3.imshow(c_seg==100)
         ax3.set_title("descending aorta mask")
         plt.show()
+
+    if savePng is not None:
+        secure_dir(savePng)
+        imsave(f"{savePng}/image.png", frame)
+        imsave(f"{savePng}/masked.png", c_overlay)
+
     
     return c_seg
 
@@ -87,14 +93,17 @@ def get_aorta_measurements(c_seg, image_ratio, label):
     aorta_measurement = ((aorta_area / math.pi)**0.5)*2.0*image_ratio
     return aorta_measurement
 
-def first_frame_segment(data, save_dir="aorta", plot=False):
+def first_frame_segment(data, save_dir="aorta", plot=False, savePng=False):
     """
     Generate ascending and descending aorta diameters using first frame
     """
     images, image_ratio, image_id = data
     image = images[0]
 
-    c_seg = segment_frame(image, plot=plot)
+    if savePng:
+        c_seg = segment_frame(image, plot=plot, savePng=f"{save_dir}/png/{image_id}_f0")
+    else:
+        c_seg = segment_frame(image, plot=plot)
 
     aorta_measurements = np.array([get_aorta_measurements(c_seg, image_ratio, 50),
                                    get_aorta_measurements(c_seg, image_ratio, 100)])
@@ -106,13 +115,18 @@ def first_frame_segment(data, save_dir="aorta", plot=False):
     return aorta_measurements
 
 
-def all_frames_segment(data, save_dir="aorta", plot=False):
+def all_frames_segment(data, save_dir="aorta", plot=False, savePng=False):
     """
     Generate ascending and descending aorta diameters using all frames
     """
     images, image_ratio, image_id = data
 
-    c_segs = np.array([segment_frame(image, plot=plot) for image in images])
+
+    if savePng:
+        c_segs = np.array([segment_frame(image, plot=plot, savePng=f"{save_dir}/png/{image_id}_f{i}") for i, image in enumerate(images)])
+    else:
+        c_segs = np.array([segment_frame(image, plot=plot) for image in images])
+
     c_seg1 = np.mean((c_segs==50).astype(float), axis=0).round().astype(int)
     c_seg2 = np.mean((c_segs==100).astype(float), axis=0).round().astype(int)
 
@@ -125,15 +139,15 @@ def all_frames_segment(data, save_dir="aorta", plot=False):
 
     return aorta_measurements
 
-def segment_dtpt(data, save_dir="aorta", all_frames=False, plot=False):
+def segment_dtpt(data, save_dir="aorta", all_frames=False, plot=False, savePng=False):
     image_id = data[-1]
     print("-"*100)
     print(f"SEGMENTING {image_id}")
     try:
         if all_frames:
-            aorta_measurements = all_frames_segment(data, save_dir, plot=plot)
+            aorta_measurements = all_frames_segment(data, save_dir, plot=plot, savePng=savePng)
         else:
-            aorta_measurements = first_frame_segment(data, save_dir, plot=plot)
+            aorta_measurements = first_frame_segment(data, save_dir, plot=plot, savePng=savePng)
 
 
     except Exception as err:
@@ -145,8 +159,7 @@ def segment_dtpt(data, save_dir="aorta", all_frames=False, plot=False):
 
 
 def main(args):
-    if not isdir(f"{args.out_dir}/npy"):
-        makedirs(f"{args.out_dir}/npy")
+    secure_dir(f"{args.out_dir}/npy")
 
     if args.all_frames:
         print("Using all frames to calculating aorta measurements.")
@@ -160,7 +173,8 @@ def main(args):
                             scale_size, data_size, 
                             seriesDescription, meta)
 
-    segment_dt = partial(segment_dtpt, save_dir=args.out_dir, all_frames=args.all_frames, plot=args.plot)
+    segment_dt = partial(segment_dtpt, save_dir=args.out_dir, all_frames=args.all_frames, 
+                         plot=args.plot, savePng=args.save_png)
 
     #results = []
     #for i, data in enumerate(dataset):
@@ -189,6 +203,7 @@ if __name__ == '__main__':
     argparser.add_argument("--threads", type=int, default=8, help="the number of threads to use.")
     argparser.add_argument("--all_frames", action="store_true", help="whether to use all frames for calculating aorta measurements.")
     argparser.add_argument("--plot", action="store_true", help="whether to plot the segmentation.")
+    argparser.add_argument("--save_png", action="store_true", help="whether to save the segmentation images into pngs.")
     args = argparser.parse_args()
 
     main(args)
