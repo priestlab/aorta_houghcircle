@@ -6,7 +6,7 @@ imageio==2.8.0
 kiwisolver==1.2.0
 matplotlib==3.2.1
 networkx==2.4
-numpy==1.18.4
+numpy>=1.22.1
 opencv-contrib-python-headless==4.2.0.32
 pandas==1.0.3
 Pillow>=8.1.1

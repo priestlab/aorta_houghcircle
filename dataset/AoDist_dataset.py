@@ -10,8 +10,8 @@ from skimage.exposure import rescale_intensity
 import pandas as pd
 from scipy.ndimage import center_of_mass
 
-from dataset.processing import CropResize
-from dataset.processing import ResizePad
+from .processing import CropResize
+from .processing import ResizePad
 
 def load_dcm_from_zip(zip_file, seriesDescription=None, meta=None):
 
